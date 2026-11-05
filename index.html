@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PersERP — Simple Double-Entry Accounting</title>
+<style>
+:root{--navy:#0f2a44;--teal:#0e9a8b;--amber:#f2a900;--bg:#f4f6f8;--card:#fff;--ink:#17222e;--mut:#6b7a89;--line:#dfe6ec;--red:#c0392b;--green:#137a4b}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header.top{background:var(--navy);color:#fff;display:flex;align-items:center;gap:12px;padding:10px 16px;position:sticky;top:0;z-index:20}
+header.top .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:.3px}
+header.top .brand small{font-weight:500;color:#9fd8d1;font-size:12px;display:block;line-height:1}
+.top .sp{flex:1}.top button{background:#ffffff22;color:#fff;border:1px solid #ffffff44;border-radius:8px;padding:7px 10px;cursor:pointer}
+.wrap{display:flex;min-height:calc(100vh - 57px)}
+nav.side{width:210px;background:#fff;border-right:1px solid var(--line);padding:12px;flex-shrink:0}
+nav.side button{display:block;width:100%;text-align:left;background:none;border:0;padding:10px 12px;border-radius:8px;cursor:pointer;font-size:14px;margin-bottom:4px}
+nav.side button.active,nav.side button:hover{background:#e6f4f1;color:var(--navy);font-weight:700}
+main{flex:1;padding:18px;max-width:1100px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:0 0 10px}h3{font-size:15px;margin:14px 0 8px}
+.mut{color:var(--mut);font-size:13px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px}.kpi b{font-size:22px;display:block}
+label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid #cbd5de;border-radius:8px;font-size:14px;background:#fff}
+textarea{min-height:56px}.row{display:flex;gap:10px;flex-wrap:wrap}.row>*{flex:1;min-width:140px}
+.btn{background:var(--teal);color:#fff;border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:700;font-size:14px}
+.btn.navy{background:var(--navy)}.btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}.btn.danger{background:var(--red)}.btn.small{padding:6px 10px;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:left}th{background:#f0f4f7}td.num,th.num{text-align:right}
+tr.clickable{cursor:pointer}tr.clickable:hover{background:#eef7f5}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:12px;background:#e6f4f1;color:var(--navy);font-weight:700}
+.picker{position:relative}.picker .drop{position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #0002;max-height:240px;overflow:auto;z-index:30;display:none}
+.picker .drop div{padding:9px 10px;cursor:pointer;border-bottom:1px solid #f0f0f0}.picker .drop div:hover,.picker .drop div.sel{background:#e6f4f1}
+.picker .drop small{color:var(--mut);display:block}
+.modal{position:fixed;inset:0;background:#0008;display:none;align-items:center;justify-content:center;z-index:50;padding:16px}
+.modal.open{display:flex}.modal .box{background:#fff;border-radius:12px;padding:18px;max-width:640px;width:100%;max-height:90vh;overflow:auto}
+.periodbar{background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-bottom:14px}
+.periodbar label{margin:0}.periodbar input{width:150px}
+#loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:linear-gradient(135deg,#0f2a44,#0e9a8b)}
+#loginScreen .box{background:#fff;border-radius:14px;padding:26px;max-width:420px;width:100%;text-align:center}
+#appShell{display:none}#appShell.on{display:block}
+.ok{color:var(--green);font-weight:700}.err{color:var(--red);font-weight:700}
+@media(max-width:760px){.wrap{flex-direction:column}nav.side{width:100%;display:flex;overflow:auto;padding:8px}nav.side button{white-space:nowrap;width:auto}main{padding:12px}}
+@media print{body{background:#fff}header.top,nav.side,.no-print{display:none!important}.wrap{display:block}main{max-width:none;padding:0}}
+#printArea{display:none}
+</style>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head><body>
+<!-- LOGIN -->
+<div id="loginScreen"><div class="box">
+<svg width="64" height="64" viewBox="0 0 64 64" aria-label="PersERP logo"><rect width="64" height="64" rx="14" fill="#0f2a44"/><path d="M20 46V18h10a9 9 0 010 18h-6v10z" fill="#fff"/><rect x="24" y="22" width="6" height="6" rx="1" fill="#f2a900"/><rect x="40" y="18" width="4" height="28" rx="2" fill="#0e9a8b"/><rect x="48" y="18" width="4" height="28" rx="2" fill="#0e9a8b" opacity=".55"/></svg>
+<h1 style="margin-top:8px">PersERP</h1><p class="mut">Simple double-entry accounting for daily use</p>
+<div id="authMsg" class="err"></div>
+<label style="text-align:left">Username</label><input id="authUser" placeholder="e.g. midhun" autocomplete="username">
+<label style="text-align:left">Password <span class="mut">(min 8 characters)</span></label><input id="authPass" type="password" placeholder="Password" autocomplete="current-password">
+<div class="row" style="margin-top:14px"><button class="btn navy" onclick="PersERP.uiLogin()">Log in</button><button class="btn ghost" onclick="PersERP.uiSignup()">Create account</button></div>
+<p class="mut" style="margin-top:12px">No email needed. Accounts are stored locally when offline, and in Supabase when configured. Your books stay yours.</p>
+<p class="mut" id="syncStatus">Offline mode — local storage. Add your Supabase URL + key in the CONFIG block to enable cloud sync.</p>
+</div></div>
+<!-- APP -->
+<div id="appShell"><header class="top">
+<div class="brand"><svg width="36" height="36" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#fff"/><path d="M20 46V18h10a9 9 0 010 18h-6v10z" fill="#0f2a44"/><rect x="24" y="22" width="6" height="6" rx="1" fill="#f2a900"/><rect x="40" y="18" width="4" height="28" rx="2" fill="#0e9a8b"/><rect x="48" y="18" width="4" height="28" rx="2" fill="#0e9a8b" opacity=".55"/></svg><span>PersERP<small>Double-entry accounting</small></span></div>
+<span class="sp"></span><span id="whoami" class="mut" style="color:#cfe8e4"></span><span id="cloudBadge" class="badge">Offline</span><button onclick="PersERP.logout()">Log out</button>
+</header><div class="wrap"><nav class="side" id="sideNav"></nav><main>
+<div class="periodbar"><div><label>Period from</label><input type="date" id="periodFrom"></div><div><label>Period to</label><input type="date" id="periodTo"></div><button class="btn small navy" onclick="PersERP.applyPeriod()">Apply period</button><button class="btn small ghost" onclick="PersERP.resetPeriod()">This month</button><span class="mut" id="periodLabel"></span></div>
+<div id="page"></div>
+</main></div></div>
+<!-- MODALS -->
+<div class="modal" id="ledgerModal"><div class="box"><h2>New Ledger</h2><div id="ledgerForm"></div><div class="row" style="margin-top:12px"><button class="btn" onclick="PersERP.saveLedgerModal()">Save ledger</button><button class="btn ghost" onclick="PersERP.closeModal('ledgerModal')">Cancel</button></div><p id="ledgerModalMsg" class="err"></p></div></div>
+<div class="modal" id="journalModal"><div class="box"><h2>Journal Entry</h2><div id="journalDetail"></div><div style="margin-top:12px;text-align:right"><button class="btn ghost" onclick="PersERP.closeModal('journalModal')">Close</button></div></div></div>
+<div class="modal" id="confirmModal"><div class="box"><h2 id="confirmTitle">Confirm</h2><p id="confirmText"></p><div class="row"><button class="btn danger" id="confirmYes">Yes, do it</button><button class="btn ghost" onclick="PersERP.closeModal('confirmModal')">Cancel</button></div></div></div>
+<div id="printArea"></div>
+<script>
+/* ================= PersERP CONFIG — PASTE YOUR SUPABASE DETAILS HERE =================
+   1. Create a free project at https://supabase.com  2. Run perserp-supabase.sql in its SQL Editor
+   3. Paste your Project URL + anon (publishable) key below. Leave empty = fully offline on localStorage.
+   NEVER paste the service_role key here. */
+const SUPABASE_URL = "https://abptquwwolzxopuvtoma.supabase.co";  // Supabase Project URL — baked in
+const SUPABASE_ANON_KEY = "sb_publishable_mOuH7mXVsk6eTYpguFjh5A_SRfWq15q";  // publishable key — baked in
+const APP_NAME = "PersERP";
+/* ===================================================================================== */
+</script>
+<script>
+"use strict";
+/* ---------- utils ---------- */
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const uid=()=> 'id'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+const todayStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const monthStartStr=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01'};
+const fmt=n=>{const v=Number(n)||0;return v.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2})};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const parseAmt=v=>{const n=parseFloat(String(v).replace(/,/g,''));return isNaN(n)?0:n};
+function hashSync(pw){let h1=0xdeadbeef,h2=0x41c6ce57;for(let i=0;i<pw.length;i++){const ch=pw.charCodeAt(i);h1=Math.imul(h1^ch,2654435761);h2=Math.imul(h2^ch,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return (h2>>>0).toString(16)+(h1>>>0).toString(16)}
+async function hashPassword(pw){try{if(window.crypto&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(pw));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}}catch(e){}return 'fallback-'+hashSync(pw)}
+const SUBDIVISIONS={Asset:['Current Asset','Non-Current / Fixed Asset','Cash & Bank','Receivables','Other Asset'],Liability:['Current Liability','Non-Current Liability','Payables','Loans','Other Liability'],Expense:['Direct Expense','Indirect / Operating Expense','Other Expense'],Income:['Sales / Revenue','Other Income'],Equity:['Capital','Retained Earnings','Drawings','Reserves']};
+const isConfigured=()=>!!(SUPABASE_URL&&SUPABASE_ANON_KEY&&SUPABASE_URL.indexOf('http')===0);
+/* ---------- Supabase RPC layer (offline fallback intact) ---------- */
+async function sbRpc(fn,params){ if(!isConfigured()) throw new Error('Supabase not configured');
+ const r=await fetch(SUPABASE_URL+'/rest/v1/rpc/'+fn,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_ANON_KEY,'Authorization':'Bearer '+SUPABASE_ANON_KEY},body:JSON.stringify(params||{})});
+ const t=await r.text(); let j=null; try{j=JSON.parse(t)}catch(e){}
+ if(!r.ok) throw new Error((j&&j.message)||t||('Supabase error '+r.status)); return j; }
+async function sbSignup(username,hash){return sbRpc('perserp_signup',{p_username:username,p_password_hash:hash})}
+async function sbLogin(username,hash){return sbRpc('perserp_login',{p_username:username,p_password_hash:hash})}
+async function sbPull(username){return sbRpc('perserp_pull',{p_username:username})}
+async function sbPush(username,payload){return sbRpc('perserp_push',{p_username:username,p_payload:payload})}
+/* ---------- state ---------- */
+let S={ledgers:[],journals:[],recurring:[],assets:[],depLog:[]};
+let currentUser=null, currentPage='dashboard', period={from:monthStartStr(),to:todayStr()};
+let pickerAfterCreate=null; // callback after inline ledger creation
+function seedLedgers(){const mk=(name,type,sub,opening,side)=>({id:uid(),name,type,sub,opening:opening||0,openingSide:side||(type==='Asset'?'Dr':'Cr')});
+ return [mk('Cash','Asset','Cash & Bank',0,'Dr'),mk('Bank Account','Asset','Cash & Bank',0,'Dr'),mk('Capital','Equity','Capital',0,'Cr'),mk('Sales','Income','Sales / Revenue'),mk('Other Income','Income','Other Income'),mk('Purchases','Expense','Direct Expense'),mk('Rent','Expense','Indirect / Operating Expense'),mk('Salaries','Expense','Indirect / Operating Expense'),mk('Electricity','Expense','Indirect / Operating Expense'),mk('Office Expenses','Expense','Indirect / Operating Expense'),mk('Accounts Receivable','Asset','Receivables'),mk('Accounts Payable','Liability','Payables'),mk('Bank Loan','Liability','Loans'),mk('Depreciation Expense','Expense','Indirect / Operating Expense'),mk('Accumulated Depreciation','Asset','Non-Current / Fixed Asset')];}
+function blankState(){return {ledgers:seedLedgers(),journals:[],recurring:[],assets:[],depLog:[]};}
+function storeKey(u){return 'perserp_book_'+(u||'local')}
+function saveLocal(){try{localStorage.setItem(storeKey(currentUser),JSON.stringify(S));localStorage.setItem('perserp_session',currentUser||'')}catch(e){}}
+async function saveAll(){ saveLocal(); if(isConfigured()&&currentUser){try{await sbPush(currentUser,S);setCloud('Synced')}catch(e){setCloud('Offline — sync failed')}} }
+function loadLocal(u){try{const raw=localStorage.getItem(storeKey(u));if(raw){const p=JSON.parse(raw);if(p&&Array.isArray(p.ledgers))return p}}catch(e){}return null}
+function setCloud(t){const b=$('#cloudBadge');if(b)b.textContent=t;const s=$('#syncStatus');if(s)s.textContent=isConfigured()?('Supabase connected — '+t):'Offline mode — local storage. Supabase is configured; sync runs when online.'}
+/* ---------- ledger / journal core (testable) ---------- */
+function ledgerById(id){return S.ledgers.find(l=>l.id===id)}
+function ledgerByName(n){return S.ledgers.find(l=>l.name.toLowerCase()===String(n).toLowerCase())}
+function filterLedgers(q){q=(q||'').toLowerCase().trim();if(!q)return S.ledgers.slice();return S.ledgers.filter(l=>(l.name+' '+l.type+' '+l.sub).toLowerCase().includes(q))}
+function signedOpening(l){return l.openingSide==='Dr'? (l.opening||0) : -(l.opening||0)} // + = Dr balance
+function ledgerBalance(id,asOf){let l=ledgerById(id);if(!l)return 0;let b=signedOpening(l);for(const j of S.journals){if(asOf&&j.date>asOf)continue;for(const ln of j.lines){if(ln.ledgerId===id)b+=(ln.dr||0)-(ln.cr||0)}}return b}
+function ledgerMovement(id,from,to){let b=0;for(const j of S.journals){if(from&&j.date<from)continue;if(to&&j.date>to)continue;for(const ln of j.lines){if(ln.ledgerId===id)b+=(ln.dr||0)-(ln.cr||0)}}return b}
+function validateJournal(j){if(!j.narration||!String(j.narration).trim())return 'Narration is mandatory.';
+ if(!j.date)return 'Date is required.'; if(!j.lines||j.lines.length<2)return 'A journal needs at least 2 lines.';
+ for(const ln of j.lines){if(!ln.ledgerId||!ledgerById(ln.ledgerId))return 'Every line needs a valid ledger.';const dr=ln.dr||0,cr=ln.cr||0;if(dr<0||cr<0)return 'Amounts cannot be negative.';if(dr>0&&cr>0)return 'A line cannot have both Dr and Cr.';if(dr===0&&cr===0)return 'Every line needs a Dr or Cr amount.'}
+ const dr=j.lines.reduce((a,l)=>a+(l.dr||0),0),cr=j.lines.reduce((a,l)=>a+(l.cr||0),0);
+ if(Math.abs(dr-cr)>0.005)return 'Journal does not balance: Dr '+fmt(dr)+' ≠ Cr '+fmt(cr)+'.'; return null;}
+function addJournal(j){const err=validateJournal(j);if(err)return {ok:false,error:err};const e={id:uid(),date:j.date,narration:String(j.narration).trim(),lines:j.lines.map(l=>({ledgerId:l.ledgerId,dr:parseAmt(l.dr)||0,cr:parseAmt(l.cr)||0})),source:j.source||'journal',ref:j.ref||''};S.journals.push(e);S.journals.sort((a,b)=>a.date<b.date?-1:1);saveLocal();return {ok:true,entry:e}}
+function addLedger(name,type,sub,opening,openingSide){name=String(name||'').trim();if(!name)return {ok:false,error:'Ledger name is required.'};if(!SUBDIVISIONS[type])return {ok:false,error:'Choose a valid type.'};if(!SUBDIVISIONS[type].includes(sub))return {ok:false,error:'Choose a subdivision for '+type+'.'};if(ledgerByName(name))return {ok:false,error:'A ledger named "'+name+'" already exists.'};
+ const l={id:uid(),name,type,sub,opening:0,openingSide:'Dr'}; if(['Asset','Liability','Equity'].includes(type)){l.opening=parseAmt(opening)||0;l.openingSide=openingSide||(type==='Asset'?'Dr':'Cr')}
+ S.ledgers.push(l);saveLocal();return {ok:true,ledger:l}}
+function quickAdd(kind,opts){ // kind: 'expense'|'income'
+ const amt=parseAmt(opts.amount); if(!amt||amt<=0)return {ok:false,error:'Enter an amount greater than 0.'};
+ if(!opts.narration||!String(opts.narration).trim())return {ok:false,error:'Narration is mandatory.'};
+ const main=ledgerById(opts.ledgerId), pay=ledgerById(opts.payLedgerId); if(!main)return {ok:false,error:'Choose a ledger.'}; if(!pay)return {ok:false,error:'Choose Cash / Bank.'};
+ const lines= kind==='expense'? [{ledgerId:main.id,dr:amt,cr:0},{ledgerId:pay.id,dr:0,cr:amt}] : [{ledgerId:pay.id,dr:amt,cr:0},{ledgerId:main.id,dr:0,cr:amt}];
+ return addJournal({date:opts.date||todayStr(),narration:opts.narration,lines,source:'quick-'+kind});}
+/* ---------- reports (testable) ---------- */
+function inPeriod(d){return (!period.from||d>=period.from)&&(!period.to||d<=period.to)}
+function trialBalance(){const rows=S.ledgers.map(l=>{const bal=ledgerBalance(l.id,period.to);return {ledger:l,dr:bal>0?bal:0,cr:bal<0?-bal:0}}).filter(r=>r.dr>0.005||r.cr>0.005||(ledgerById(r.ledger.id).opening||0)>0);
+ const tdr=rows.reduce((a,r)=>a+r.dr,0),tcr=rows.reduce((a,r)=>a+r.cr,0);return {rows,totalDr:tdr,totalCr:tcr,balanced:Math.abs(tdr-tcr)<0.01}}
+function profitLoss(){let inc=0,exp=0;const incRows=[],expRows=[];for(const l of S.ledgers){const m=ledgerMovement(l.id,period.from,period.to);if(l.type==='Income'&&m!==0){incRows.push({ledger:l,amount:-m});inc+=-m}if(l.type==='Expense'&&m!==0){expRows.push({ledger:l,amount:m});exp+=m}}return {incomeRows:incRows,expenseRows:expRows,income:inc,expense:exp,profit:inc-exp}}
+function balanceSheet(){const groups={};for(const l of S.ledgers){const bal=ledgerBalance(l.id,period.to);let amt=0;if(l.type==='Asset')amt=bal;else if(l.type==='Liability')amt=-bal;else if(l.type==='Equity')amt=-bal;else continue;if(Math.abs(amt)<0.005&&!(l.opening>0))continue;(groups[l.type]=groups[l.type]||[]).push({ledger:l,amount:amt})}
+ const assets=(groups.Asset||[]).reduce((a,r)=>a+r.amount,0),liab=(groups.Liability||[]).reduce((a,r)=>a+r.amount,0),eq=(groups.Equity||[]).reduce((a,r)=>a+r.amount,0);
+ // BS is cumulative (as at period end), so its profit must be cumulative too —
+ // period-only profit would break Assets = L+E+Profit whenever an entry
+ // predates the period. P&L report itself stays period-only.
+ let cumProfit=0;for(const l of S.ledgers){const m=ledgerMovement(l.id,null,period.to);if(l.type==='Income')cumProfit+=-m;if(l.type==='Expense')cumProfit-=m}
+ const rhs=liab+eq+cumProfit;return {groups,assets,liabilities:liab,equity:eq,profit:cumProfit,periodProfit:profitLoss().profit,rhs,balanced:Math.abs(assets-rhs)<0.01}}
+function cashFlow(){const cashIds=S.ledgers.filter(l=>l.sub==='Cash & Bank').map(l=>l.id);let op=0,inv=0,fin=0;for(const j of S.journals){if(!inPeriod(j.date))continue;for(const ln of j.lines){if(!cashIds.includes(ln.ledgerId))continue;const flow=(ln.dr||0)-(ln.cr||0);const others=j.lines.filter(x=>x.ledgerId!==ln.ledgerId);const o=others[0]?ledgerById(others[0].ledgerId):null;if(!o){op+=flow;continue}if(o.type==='Income'||o.type==='Expense')op+=flow;else if(o.sub==='Non-Current / Fixed Asset'||o.name.toLowerCase().includes('asset'))inv+=flow;else if(o.type==='Equity'||o.sub==='Loans')fin+=flow;else op+=flow}}
+ const open=0;let close=0;for(const id of cashIds)close+=ledgerBalance(id,period.to);return {operating:op,investing:inv,financing:fin,net:op+inv+fin,closing:close}}
+/* ---------- recurring ---------- */
+function fmtD(x){return x.getFullYear()+'-'+String(x.getMonth()+1).padStart(2,'0')+'-'+String(x.getDate()).padStart(2,'0')}
+function addDays(d,n){const x=new Date(d+'T12:00:00');x.setDate(x.getDate()+n);return fmtD(x)}
+function addMonths(d,n){const x=new Date(d+'T12:00:00');x.setMonth(x.getMonth()+n);return fmtD(x)}
+function calcNextDue(r,fromDate){let d=fromDate||r.startDate;if(r.freq==='daily')return addDays(d,1);if(r.freq==='weekly')return addDays(d,7);if(r.freq==='monthly')return addMonths(d,1);if(r.freq==='custom'){if(r.intervalUnit==='days')return addDays(d,r.interval||1);if(r.intervalUnit==='weeks')return addDays(d,7*(r.interval||1));return addMonths(d,r.interval||1)}return d}
+function dueRecurring(asOf){asOf=asOf||todayStr();return S.recurring.filter(r=>!r.paused&&r.nextDue&&r.nextDue<=asOf&&(!r.endDate||r.nextDue<=r.endDate))}
+function postRecurring(r,date){const res=addJournal({date:date||todayStr(),narration:r.narration+' (Recurring: '+r.name+')',lines:r.lines,source:'recurring',ref:r.id});if(res.ok){r.lastPosted=date||todayStr();r.nextDue=calcNextDue(r,r.nextDue);saveLocal()}return res}
+/* ---------- fixed assets / depreciation ---------- */
+function depPerPeriod(a){const base=(a.cost||0)-(a.residual||0);return a.lifeUnit==='weeks'? base/(a.lifeValue||1) : base/(a.lifeValue||1)}
+function depSchedule(a){const per=depPerPeriod(a);const out=[];let rem=(a.cost||0)-(a.residual||0);for(let i=1;i<=(a.lifeValue||1);i++){const amt=Math.min(per,rem);out.push({period:i,amount:amt,balance:rem-amt});rem-=amt;if(rem<=0.005)break}return out}
+function postDepreciation(assetId,date){const a=S.assets.find(x=>x.id===assetId);if(!a)return {ok:false,error:'Asset not found.'};const per=depPerPeriod(a);const already=(S.depLog.filter(d=>d.assetId===assetId).reduce((s,d)=>s+d.amount,0));if(already+per>(a.cost-(a.residual||0))+0.01)return {ok:false,error:'Asset is fully depreciated.'};
+ let exp=ledgerByName('Depreciation Expense'),acc=ledgerByName('Accumulated Depreciation');if(!exp)exp=addLedger('Depreciation Expense','Expense','Indirect / Operating Expense').ledger;if(!acc)acc=addLedger('Accumulated Depreciation','Asset','Non-Current / Fixed Asset').ledger;
+ const res=addJournal({date:date||todayStr(),narration:'Depreciation — '+a.name+' ('+a.lifeUnit+')',lines:[{ledgerId:exp.id,dr:per,cr:0},{ledgerId:acc.id,dr:0,cr:per}],source:'depreciation',ref:assetId});if(!res.ok)return res;S.depLog.push({id:uid(),assetId,date:date||todayStr(),amount:per,journalId:res.entry.id});saveLocal();return {ok:true,amount:per,entry:res.entry}}
+</script>
+<script>
+"use strict";
+/* ---------- exports ---------- */
+function download(name,content,type){const b=new Blob([content],{type:type||'application/octet-stream'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
+function exportJSON(){download('perserp-backup-'+todayStr()+'.json',JSON.stringify({app:APP_NAME,exported:todayStr(),user:currentUser,ledgers:S.ledgers,journals:S.journals,recurring:S.recurring,assets:S.assets,depLog:S.depLog},null,2),'application/json')}
+function importJSONText(text){let p;try{p=JSON.parse(text)}catch(e){return {ok:false,error:'Not a valid JSON file.'}}if(!p||!Array.isArray(p.ledgers)||!Array.isArray(p.journals))return {ok:false,error:'This file is not a PersERP backup (ledgers/journals missing).'};S={ledgers:p.ledgers,journals:p.journals,recurring:p.recurring||[],assets:p.assets||[],depLog:p.depLog||[]};saveLocal();return {ok:true,count:p.journals.length}}
+function toCSV(rows){return rows.map(r=>r.map(c=>{const s=String(c??'');return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s}).join(',')).join('\n')}
+function exportSheet(name,rows){ // Excel via SheetJS when online, CSV fallback offline — both carry PersERP branding row
+ const branded=[[APP_NAME+' — '+name,'Exported '+todayStr()+(currentUser?' • '+currentUser:'')],[]].concat(rows);
+ if(window.XLSX){try{const ws=XLSX.utils.aoa_to_sheet(branded);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31));XLSX.writeFile(wb,name+'.xlsx');return 'xlsx'}catch(e){}}
+ download(name+'.csv',toCSV(branded),'text/csv');return 'csv'}
+function printReport(title,html){const pa=$('#printArea');pa.innerHTML='<div style="font-family:Arial,sans-serif;padding:8px"><div style="display:flex;justify-content:space-between;border-bottom:3px solid #0f2a44;padding-bottom:8px"><div><b style="font-size:20px;color:#0f2a44">PersERP</b><div style="color:#666;font-size:12px">'+esc(title)+' • Period '+esc(period.from)+' to '+esc(period.to)+'</div></div><div style="color:#666;font-size:12px;text-align:right">Generated '+esc(todayStr())+(currentUser?'<br>'+esc(currentUser):'')+'</div></div>'+html+'<p style="color:#888;font-size:11px;border-top:1px solid #ddd;padding-top:6px">PersERP — Simple double-entry accounting</p></div>';pa.style.display='block';window.print();setTimeout(()=>{pa.style.display='none'},500)}
+/* ---------- ledger picker (one reusable component) ---------- */
+function pickerHTML(id,placeholder){return '<div class="picker"><input id="'+id+'" placeholder="'+(placeholder||'Type to search ledgers…')+'" autocomplete="off"><div class="drop" id="'+id+'-drop"></div><input type="hidden" id="'+id+'-val"></div><button type="button" class="btn small ghost" onclick="PersERP.openLedgerModal(\''+id+'\')">+ New Ledger</button>'}
+function attachPicker(id,onPick){const inp=document.getElementById(id),drop=document.getElementById(id+'-drop'),hid=document.getElementById(id+'-val');if(!inp)return;let sel=-1;
+ const render=()=>{const q=inp.value;const list=filterLedgers(q);drop.innerHTML=list.map((l,i)=>'<div data-i="'+i+'" data-id="'+l.id+'"><b>'+esc(l.name)+'</b> <span class="mut">'+esc(l.type)+' • '+esc(l.sub)+' • Bal '+fmt(ledgerBalance(l.id))+'</span></div>').join('')||'<div>No ledgers match — use + New Ledger.</div>';drop.style.display='block';sel=-1;
+  drop.querySelectorAll('div[data-id]').forEach(d=>d.onclick=()=>{const l=ledgerById(d.dataset.id);inp.value=l.name;hid.value=l.id;drop.style.display='none';if(onPick)onPick(l)});};
+ inp.addEventListener('focus',render);inp.addEventListener('input',()=>{hid.value='';render()});
+ inp.addEventListener('keydown',e=>{const items=[...drop.querySelectorAll('div[data-id]')];if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,items.length-1)}else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0)}else if(e.key==='Enter'&&sel>=0){e.preventDefault();items[sel].click()}else return;items.forEach((it,i)=>it.classList.toggle('sel',i===sel))});
+ document.addEventListener('click',e=>{if(!e.target.closest('.picker'))drop.style.display='none'});}
+/* ---------- UI helpers ---------- */
+function navItems(){return [['dashboard','📊 Dashboard'],['quick','⚡ Quick Add'],['journal','📖 Journal / Day Book'],['ledgers','📚 Ledgers'],['assets','🏭 Fixed Assets'],['recurring','🔁 Recurring'],['reports','📈 Reports'],['settings','⚙️ Settings / Backup']]}
+function renderNav(){$('#sideNav').innerHTML=navItems().map(n=>'<button class="'+(currentPage===n[0]?'active':'')+'" onclick="PersERP.go(\''+n[0]+'\')">'+n[1]+'</button>').join('')}
+function journalRow(j){const dr=j.lines.reduce((a,l)=>a+(l.dr||0),0);return '<tr class="clickable" onclick="PersERP.showJournal(\''+j.id+'\')"><td>'+esc(j.date)+'</td><td>'+esc(j.narration)+'</td><td class="mut">'+esc(j.source||'')+'</td><td class="num">'+fmt(dr)+'</td></tr>'}
+function showMsg(id,txt,ok){const el=$(id);if(el){el.textContent=txt||'';el.className=ok?'ok':'err'}}
+/* ---------- pages ---------- */
+function pageDashboard(){const pl=profitLoss(),bs=balanceSheet(),due=dueRecurring();const cash=S.ledgers.filter(l=>l.sub==='Cash & Bank').reduce((a,l)=>a+ledgerBalance(l.id),0);
+ const inc=S.journals.filter(j=>inPeriod(j.date)).reduce((a,j)=>a+j.lines.reduce((s,l)=>s+((ledgerById(l.ledgerId)||{}).type==='Income'?(l.cr||0):0),0),0);
+ const exp=S.journals.filter(j=>inPeriod(j.date)).reduce((a,j)=>a+j.lines.reduce((s,l)=>s+((ledgerById(l.ledgerId)||{}).type==='Expense'?(l.dr||0):0),0),0);
+ return '<h1>Dashboard</h1><p class="mut">Period '+esc(period.from)+' to '+esc(period.to)+' • '+S.journals.length+' journal entries • '+S.ledgers.length+' ledgers</p>'
+ +'<div class="grid"><div class="kpi">Cash &amp; Bank<b>'+fmt(cash)+'</b><span class="mut">all cash/bank ledgers</span></div><div class="kpi">Income this period<b>'+fmt(inc)+'</b></div><div class="kpi">Expenses this period<b>'+fmt(exp)+'</b></div><div class="kpi">Profit this period<b>'+fmt(pl.profit)+'</b><span class="mut">Balance Sheet '+(bs.balanced?'✓ balances':'⚠ out of balance')+'</span></div></div>'
+ +'<div class="card"><h2>Due recurring entries</h2>'+(due.length?due.map(r=>'<p>🔁 <b>'+esc(r.name)+'</b> — due '+esc(r.nextDue)+' <button class="btn small" onclick="PersERP.postDue(\''+r.id+'\')">Post now</button> <button class="btn small ghost" onclick="PersERP.skipDue(\''+r.id+'\')">Skip to next</button></p>').join(''):'<p class="mut">Nothing due. Recurring entries will appear here on their due date.</p>')+'</div>'
+ +'<div class="card"><h2>Recent entries</h2><table><tr><th>Date</th><th>Narration</th><th>Source</th><th class="num">Amount</th></tr>'+S.journals.filter(j=>inPeriod(j.date)).slice(-8).reverse().map(journalRow).join('')+'</table></div>'
+ +'<div class="row"><button class="btn" onclick="PersERP.go(\'quick\')">+ Quick Add Expense</button><button class="btn navy" onclick="PersERP.go(\'journal\')">+ New Journal Entry</button></div>'}
+function pageQuick(){return '<h1>Quick Add</h1><p class="mut">One-tap expense / income. Date defaults to today, narration is mandatory, and a balanced 2-line journal is created automatically.</p>'
+ +'<div class="grid"><div class="card"><h2>💸 Quick Expense</h2><label>Date</label><input type="date" id="qe-date" value="'+todayStr()+'"><label>Expense ledger</label>'+pickerHTML('qe-ledger')+'<label>Paid from (Cash / Bank)</label>'+pickerHTML('qe-pay')+'<label>Amount</label><input id="qe-amt" type="number" min="0" step="0.01" placeholder="0.00"><label>Narration *</label><textarea id="qe-narr" placeholder="e.g. Office stationery from Sharma Stores"></textarea><button class="btn" style="margin-top:10px" onclick="PersERP.saveQuick(\'expense\')">Save expense</button><p id="qe-msg"></p></div>'
+ +'<div class="card"><h2>💰 Quick Income</h2><label>Date</label><input type="date" id="qi-date" value="'+todayStr()+'"><label>Income ledger</label>'+pickerHTML('qi-ledger')+'<label>Received in (Cash / Bank)</label>'+pickerHTML('qi-pay')+'<label>Amount</label><input id="qi-amt" type="number" min="0" step="0.01" placeholder="0.00"><label>Narration *</label><textarea id="qi-narr" placeholder="e.g. Cash sales — 5 Nov"></textarea><button class="btn" style="margin-top:10px" onclick="PersERP.saveQuick(\'income\')">Save income</button><p id="qi-msg"></p></div></div>'}
+function pageJournal(){const list=S.journals.filter(j=>inPeriod(j.date)).slice().reverse();
+ return '<h1>Journal / Day Book</h1><p class="mut">Click any row to see the full entry. Period filter applies.</p><div class="card"><h2>New Journal Entry</h2><label>Date</label><input type="date" id="j-date" value="'+todayStr()+'"><label>Narration *</label><textarea id="j-narr" placeholder="What is this entry for? (mandatory)"></textarea><div id="j-lines"></div><button class="btn small ghost" onclick="PersERP.addJournalLine()">+ Add line</button><p class="mut" id="j-totals"></p><button class="btn" onclick="PersERP.saveJournal()">Save journal (must balance)</button> <button class="btn ghost" onclick="PersERP.saveAsRecurring()">Save as recurring template</button><p id="j-msg"></p></div>'
+ +'<div class="card"><h2>Entries in period ('+list.length+')</h2><div class="no-print" style="margin-bottom:8px"><button class="btn small navy" onclick="PersERP.exportDayBook()">Export Excel</button> <button class="btn small ghost" onclick="PersERP.printDayBook()">Export PDF</button> <button class="btn small ghost" onclick="PersERP.exportJSON()">Export JSON</button></div><table><tr><th>Date</th><th>Narration</th><th>Source</th><th class="num">Amount</th></tr>'+list.map(journalRow).join('')+'</table></div>'}
+function journalLineHTML(i){return '<div class="row" style="align-items:end;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px" data-line="'+i+'"><div style="flex:2">'+pickerHTML('jl-'+i+'-ledger')+'</div><div><label>Dr</label><input type="number" min="0" step="0.01" id="jl-'+i+'-dr" oninput="PersERP.updateTotals()"></div><div><label>Cr</label><input type="number" min="0" step="0.01" id="jl-'+i+'-cr" oninput="PersERP.updateTotals()"></div><button type="button" class="btn small danger" onclick="this.closest(\'[data-line]\').remove();PersERP.updateTotals()">✕</button></div>'}
+function pageLedgers(){const types=['Asset','Liability','Equity','Income','Expense'];let h='<h1>Chart of Accounts</h1><p class="mut">Click a ledger to see its entries. Balances are as of '+esc(period.to)+'.</p><button class="btn" onclick="PersERP.openLedgerModal()">+ New Ledger</button> <button class="btn ghost" onclick="PersERP.exportLedgers()">Export Excel</button>';
+ for(const t of types){const ls=S.ledgers.filter(l=>l.type===t);h+='<div class="card"><h2>'+t+' ('+ls.length+')</h2><table><tr><th>Ledger</th><th>Subdivision</th><th class="num">Balance</th><th></th></tr>'+ls.map(l=>{const b=ledgerBalance(l.id,period.to);return '<tr class="clickable" onclick="PersERP.showLedger(\''+l.id+'\')"><td><b>'+esc(l.name)+'</b></td><td class="mut">'+esc(l.sub)+'</td><td class="num">'+fmt(Math.abs(b))+(b>0.005?' Dr':b<-0.005?' Cr':'')+'</td><td><button class="btn small ghost" onclick="event.stopPropagation();PersERP.deleteLedger(\''+l.id+'\')">Delete</button></td></tr>'}).join('')+'</table></div>'}return h}
+function pageAssets(){return '<h1>Fixed Assets</h1><p class="mut">Straight-line depreciation — per week or per month. Post depreciation creates a balanced journal (Dr Depreciation Expense / Cr Accumulated Depreciation).</p><div class="card"><h2>Add Asset</h2><div class="row"><div><label>Asset name *</label><input id="a-name" placeholder="e.g. Laptop — Dell"></div><div><label>Asset ledger</label>'+pickerHTML('a-ledger')+'</div></div><div class="row"><div><label>Purchase date</label><input type="date" id="a-date" value="'+todayStr()+'"></div><div><label>Cost</label><input type="number" id="a-cost" min="0" step="0.01"></div><div><label>Useful life</label><input type="number" id="a-life" min="1" value="60"></div><div><label>Life unit</label><select id="a-unit"><option value="months">Months</option><option value="weeks">Weeks</option></select></div></div><label>Narration *</label><textarea id="a-narr" placeholder="e.g. Bought for office use"></textarea><button class="btn" style="margin-top:10px" onclick="PersERP.saveAsset()">Save asset</button><p id="a-msg"></p></div>'
+ +S.assets.map(a=>{const per=depPerPeriod(a);const posted=S.depLog.filter(d=>d.assetId===a.id).reduce((s,d)=>s+d.amount,0);const sched=depSchedule(a);return '<div class="card"><h2>'+esc(a.name)+' — Cost '+fmt(a.cost)+' • '+esc(String(a.lifeValue))+' '+esc(a.lifeUnit)+'</h2><p class="mut">Depreciation per '+a.lifeUnit.slice(0,-1)+': <b>'+fmt(per)+'</b> • Posted so far: '+fmt(posted)+' • Remaining: '+fmt(a.cost-posted)+'</p><button class="btn small" onclick="PersERP.postDep(\''+a.id+'\')">Post depreciation ('+fmt(per)+')</button> <button class="btn small ghost" onclick="PersERP.deleteAsset(\''+a.id+'\')">Delete asset</button><h3>Schedule (first 12)</h3><table><tr><th>#</th><th class="num">Amount</th><th class="num">Remaining</th></tr>'+sched.slice(0,12).map(s=>'<tr><td>'+s.period+'</td><td class="num">'+fmt(s.amount)+'</td><td class="num">'+fmt(s.balance)+'</td></tr>').join('')+'</table><h3>Depreciation log</h3>'+(S.depLog.filter(d=>d.assetId===a.id).map(d=>'<p class="mut">'+esc(d.date)+' — '+fmt(d.amount)+'</p>').join('')||'<p class="mut">No depreciation posted yet.</p>')+'</div>'}).join('')}
+function pageRecurring(){return '<h1>Recurring Entries</h1><p class="mut">Daily / weekly / monthly / custom. Due entries auto-post on open — review them on the Dashboard.</p><div class="card"><h2>New Recurring Entry</h2><label>Name *</label><input id="r-name" placeholder="e.g. Monthly rent"><label>Narration *</label><textarea id="r-narr"></textarea><div class="row"><div><label>Frequency</label><select id="r-freq" onchange="document.getElementById(\'r-custom\').style.display=this.value===\'custom\'?\'flex\':\'none\'"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option><option value="custom">Custom</option></select></div><div id="r-custom" style="display:none"><label>Every</label><input type="number" id="r-interval" min="1" value="2"><label>Unit</label><select id="r-unit"><option value="days">Days</option><option value="weeks">Weeks</option><option value="months">Months</option></select></div><div><label>Start date</label><input type="date" id="r-start" value="'+todayStr()+'"></div><div><label>End date (optional)</label><input type="date" id="r-end"></div></div><label>Lines (use the Journal page to build complex lines, or add two lines here)</label><div id="r-lines"></div><button class="btn small ghost" onclick="PersERP.addRecLine()">+ Add line</button><button class="btn" style="margin-top:10px" onclick="PersERP.saveRecurring()">Save recurring</button><p id="r-msg"></p></div>'
+ +S.recurring.map(r=>'<div class="card"><b>'+esc(r.name)+'</b> <span class="badge">'+esc(r.freq)+(r.freq==='custom'?' every '+r.interval+' '+r.intervalUnit:'')+'</span> '+(r.paused?'<span class="badge">Paused</span>':'')+'<p class="mut">'+esc(r.narration)+' • Next due: <b>'+esc(r.nextDue||'')+'</b>'+(r.endDate?' • Ends '+esc(r.endDate):'')+(r.lastPosted?' • Last posted '+esc(r.lastPosted):'')+'</p><button class="btn small" onclick="PersERP.postDue(\''+r.id+'\')">Post now</button> <button class="btn small ghost" onclick="PersERP.toggleRec(\''+r.id+'\')">'+(r.paused?'Resume':'Pause')+'</button> <button class="btn small danger" onclick="PersERP.deleteRec(\''+r.id+'\')">Delete</button></div>').join('')}
+function reportHTML(kind){const tb=trialBalance(),pl=profitLoss(),bs=balanceSheet(),cf=cashFlow();
+ if(kind==='tb')return '<h2>Trial Balance — '+esc(period.from)+' to '+esc(period.to)+'</h2><table><tr><th>Ledger</th><th class="num">Debit</th><th class="num">Credit</th></tr>'+tb.rows.map(r=>'<tr><td>'+esc(r.ledger.name)+' <span class="mut">('+esc(r.ledger.type)+')</span></td><td class="num">'+(r.dr?fmt(r.dr):'')+'</td><td class="num">'+(r.cr?fmt(r.cr):'')+'</td></tr>').join('')+'<tr><th>Total</th><th class="num">'+fmt(tb.totalDr)+'</th><th class="num">'+fmt(tb.totalCr)+'</th></tr></table><p class="'+(tb.balanced?'ok':'err')+'">'+(tb.balanced?'✓ Trial Balance balances':'⚠ Trial Balance does NOT balance')+'</p>';
+ if(kind==='pl')return '<h2>Profit &amp; Loss — '+esc(period.from)+' to '+esc(period.to)+'</h2><h3>Income</h3><table>'+pl.incomeRows.map(r=>'<tr><td>'+esc(r.ledger.name)+'</td><td class="num">'+fmt(r.amount)+'</td></tr>').join('')+'<tr><th>Total income</th><th class="num">'+fmt(pl.income)+'</th></tr></table><h3>Expenses</h3><table>'+pl.expenseRows.map(r=>'<tr><td>'+esc(r.ledger.name)+'</td><td class="num">'+fmt(r.amount)+'</td></tr>').join('')+'<tr><th>Total expenses</th><th class="num">'+fmt(pl.expense)+'</th></tr></table><h2>Net profit: '+fmt(pl.profit)+'</h2>';
+ if(kind==='bs')return '<h2>Balance Sheet — as at '+esc(period.to)+'</h2>'+['Asset','Liability','Equity'].map(t=>'<h3>'+t+'</h3><table>'+(bs.groups[t]||[]).map(r=>'<tr><td>'+esc(r.ledger.name)+'</td><td class="num">'+fmt(r.amount)+'</td></tr>').join('')+'</table>').join('')+'<p><b>Retained profit to date (added to equity): '+fmt(bs.profit)+'</b> <span class="mut">(period profit: '+fmt(bs.periodProfit)+')</span></p><p>Total Assets: <b>'+fmt(bs.assets)+'</b> • Liabilities + Equity + Profit: <b>'+fmt(bs.rhs)+'</b></p><p class="'+(bs.balanced?'ok':'err')+'">'+(bs.balanced?'✓ Assets = Liabilities + Equity':'⚠ Balance Sheet does NOT balance')+'</p>';
+ return '<h2>Cash Flow Statement — '+esc(period.from)+' to '+esc(period.to)+'</h2><table><tr><th>Activity</th><th class="num">Amount</th></tr><tr><td>Operating</td><td class="num">'+fmt(cf.operating)+'</td></tr><tr><td>Investing</td><td class="num">'+fmt(cf.investing)+'</td></tr><tr><td>Financing</td><td class="num">'+fmt(cf.financing)+'</td></tr><tr><th>Net cash flow</th><th class="num">'+fmt(cf.net)+'</th></tr><tr><td>Closing Cash &amp; Bank</td><td class="num">'+fmt(cf.closing)+'</td></tr></table><p class="mut">Classified from Cash &amp; Bank movements: income/expense counterparts → Operating; fixed-asset counterparts → Investing; capital/loan counterparts → Financing.</p>'}
+function pageReports(){return '<h1>Reports</h1><p class="mut">All reports respect the period above. Every report exports to Excel, PDF and JSON.</p><div class="card"><div class="row"><div><label>Report</label><select id="rep-kind" onchange="PersERP.renderReport()"><option value="tb">Trial Balance</option><option value="pl">Profit &amp; Loss</option><option value="bs">Balance Sheet</option><option value="cf">Cash Flow Statement</option></select></div></div><div style="margin:10px 0" class="no-print"><button class="btn small navy" onclick="PersERP.exportReport()">Export Excel</button> <button class="btn small ghost" onclick="PersERP.printCurrentReport()">Export PDF</button> <button class="btn small ghost" onclick="PersERP.exportJSON()">Export JSON (full backup)</button></div><div id="rep-out">'+reportHTML('tb')+'</div></div>'}
+function pageSettings(){return '<h1>Settings / Backup</h1><div class="card"><h2>Backup &amp; restore (JSON)</h2><p class="mut">Full-book backup: ledgers, journals, recurring entries and fixed assets. Import restores everything (confirm first).</p><button class="btn navy" onclick="PersERP.exportJSON()">⬇ Export full backup (JSON)</button> <label class="btn ghost" style="display:inline-block;cursor:pointer">⬆ Import JSON backup<input type="file" id="importFile" accept=".json" style="display:none" onchange="PersERP.importFile(event)"></label><p id="set-msg"></p></div><div class="card"><h2>Cloud sync (Supabase)</h2><p class="mut">Status: <b>'+(isConfigured()?'Configured — '+(SUPABASE_URL):'Not configured — offline localStorage only')+'</b></p><p class="mut">Project URL and publishable key are baked into the CONFIG block at the top of this file. The one-time SQL setup is in perserp-supabase.sql — run it once in the Supabase SQL Editor, then sign up / log in here. If Supabase is unreachable, the app keeps working offline and retries sync on save.</p><button class="btn" onclick="PersERP.syncNow()">Sync now</button> <span id="sync-msg" class="mut"></span></div><div class="card"><h2>Danger zone</h2><button class="btn danger" onclick="PersERP.deleteAccount()">Delete my account &amp; all my books</button></div>'}
+</script>
+<script>
+"use strict";
+/* ---------- autosave: every 2 min, active session only ---------- */
+let autosaveTimer=null, lastSavedAt=null;
+function ensureSavePill(){if(document.getElementById('savePill'))return;const d=document.createElement('div');d.id='savePill';d.style.cssText='position:fixed;right:14px;bottom:14px;z-index:60;background:#0f2a44;color:#fff;border-radius:20px;padding:8px 12px;font-size:13px;display:flex;gap:8px;align-items:center;box-shadow:0 4px 16px #0004';d.innerHTML='<span id="savePillText">Saved locally</span><button onclick="PersERP.saveNow()" style="background:#0e9a8b;color:#fff;border:0;border-radius:12px;padding:4px 9px;cursor:pointer;font-weight:700">Save now</button>';document.body.appendChild(d)}
+function setSaveStatus(txt){ensureSavePill();const el=document.getElementById('savePillText');if(el)el.textContent=txt}
+function timeNow(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+async function autosaveNow(manual){ if(!currentUser){setSaveStatus('Not logged in');return {ok:false,error:'Not logged in'}}
+ saveLocal(); if(!isConfigured()){setSaveStatus('Offline — will retry');setCloud('Offline — will retry');return {ok:false,offline:true}}
+ setSaveStatus('Saving…'); try{await sbPush(currentUser,S);lastSavedAt=timeNow();setSaveStatus('Saved • '+lastSavedAt);setCloud('Saved • '+lastSavedAt);return {ok:true}}catch(e){setSaveStatus('Save failed — retrying');setCloud('Save failed — retrying');return {ok:false,error:String(e&&e.message||e)}}}
+function startAutosave(){stopAutosave();ensureSavePill();setSaveStatus(isConfigured()?'Saved • '+timeNow():'Offline — will retry');autosaveTimer=setInterval(()=>{autosaveNow(false)},120000)}
+function stopAutosave(){if(autosaveTimer){clearInterval(autosaveTimer);autosaveTimer=null}}
+/* ---------- auth (username + password only, SHA-256 client-side) ---------- */
+function localAccounts(){try{return JSON.parse(localStorage.getItem('perserp_accounts')||'{}')}catch(e){return {}}}
+function saveLocalAccounts(a){try{localStorage.setItem('perserp_accounts',JSON.stringify(a))}catch(e){}}
+async function doAuth(mode){const u=($('#authUser').value||'').trim(),p=$('#authPass').value||'';const msg=$('#authMsg');
+ if(u.length<3){msg.textContent='Username needs at least 3 characters.';return} if(p.length<8){msg.textContent='Password needs at least 8 characters.';return}
+ const hash=await hashPassword(p); msg.textContent='';
+ if(isConfigured()){try{ const r= mode==='signup'? await sbSignup(u,hash) : await sbLogin(u,hash);
+   // RPC returns {ok:true} or {ok:false,error:...} — handle both shapes
+   if(r&&r.ok===false){msg.textContent=r.error||'Login failed.';return}
+  }catch(e){ msg.textContent='Supabase unreachable ('+String(e.message||e).slice(0,80)+') — trying local account instead.'; /* fall through to local */ }}
+ const accts=localAccounts();
+ if(mode==='signup'){if(accts[u]){msg.textContent='That username is already taken (locally). Pick another.';return}accts[u]=hash;saveLocalAccounts(accts)}
+ else{if(!accts[u]){ /* cloud-only account: create local mirror so offline works */ accts[u]=hash;saveLocalAccounts(accts)} else if(accts[u]!==hash){msg.textContent='Wrong password.';return}}
+ await enterApp(u)}
+async function enterApp(u){currentUser=u;try{localStorage.setItem('perserp_session',u)}catch(e){}
+ // Pull cloud copy first when configured; fall back to local copy / blank book
+ let loaded=null; if(isConfigured()){try{const r=await sbPull(u);const data=(r&&r.data)||r;if(data&&Array.isArray(data.ledgers))loaded=data}catch(e){}}
+ S=loaded||loadLocal(u)||blankState(); saveLocal();
+ $('#loginScreen').style.display='none';$('#appShell').classList.add('on');$('#whoami').textContent='👤 '+u;setCloud(isConfigured()?'Connected':'Offline');
+ startAutosave(); // 2-minute timer runs only during an active session
+ // Auto-post due recurring entries on open
+ const due=dueRecurring(); let posted=0; for(const r of due){const res=postRecurring(r);if(res.ok)posted++} if(posted)saveLocal();
+ if(posted)setTimeout(()=>alert(posted+' recurring entr'+(posted>1?'ies':'y')+' auto-posted. See Dashboard to review.'),300);
+ go('dashboard')}
+function logout(){stopAutosave();saveLocal();currentUser=null;try{localStorage.removeItem('perserp_session')}catch(e){}$('#appShell').classList.remove('on');$('#loginScreen').style.display='flex';const p=$('#savePill');if(p)p.remove()}
+/* ---------- navigation / render ---------- */
+let jLineCount=0, rLineCount=0;
+function go(page){currentPage=page;render()}
+function render(){renderNav();const pf=$('#periodFrom'),pt=$('#periodTo');if(pf)pf.value=period.from;if(pt)pt.value=period.to;const pl=$('#periodLabel');if(pl)pl.textContent='Period: '+period.from+' → '+period.to;
+ const pg=$('#page'); if(!pg)return;
+ if(currentPage==='dashboard')pg.innerHTML=pageDashboard();
+ else if(currentPage==='quick'){pg.innerHTML=pageQuick();attachPicker('qe-ledger');attachPicker('qe-pay');attachPicker('qi-ledger');attachPicker('qi-pay');const qe=ledgerByName('Cash');if(qe){const el=$('#qe-pay');if(el){el.value='Cash';$('#qe-pay-val').value=qe.id}}const qi=ledgerByName('Cash');if(qi){const el=$('#qi-pay');if(el){el.value='Cash';$('#qi-pay-val').value=qi.id}}}
+ else if(currentPage==='journal'){pg.innerHTML=pageJournal();jLineCount=0;addJournalLine();addJournalLine();updateTotals()}
+ else if(currentPage==='ledgers')pg.innerHTML=pageLedgers();
+ else if(currentPage==='assets'){pg.innerHTML=pageAssets();attachPicker('a-ledger')}
+ else if(currentPage==='recurring'){pg.innerHTML=pageRecurring();rLineCount=0;addRecLine();addRecLine()}
+ else if(currentPage==='reports')pg.innerHTML=pageReports();
+ else if(currentPage==='settings')pg.innerHTML=pageSettings();}
+function applyPeriod(){period.from=$('#periodFrom').value||monthStartStr();period.to=$('#periodTo').value||todayStr();render()}
+function resetPeriod(){period={from:monthStartStr(),to:todayStr()};render()}
+/* ---------- ledger modal ---------- */
+function openLedgerModal(pickerId){pickerAfterCreate=pickerId||null;const f=$('#ledgerForm');f.innerHTML='<label>Name *</label><input id="lm-name"><label>Type *</label><select id="lm-type" onchange="PersERP.ledgerTypeChanged()">'+Object.keys(SUBDIVISIONS).map(t=>'<option>'+t+'</option>').join('')+'</select><label>Subdivision *</label><select id="lm-sub"></select><div id="lm-open-wrap"><label>Opening balance (Asset / Liability / Equity only)</label><input type="number" id="lm-open" min="0" step="0.01" value="0"><label>Opening side</label><select id="lm-side"><option value="Dr">Dr</option><option value="Cr">Cr</option></select></div><p class="mut">Opening balance creates the opening figure for this ledger (no journal needed).</p>';ledgerTypeChanged();$('#ledgerModalMsg').textContent='';$('#ledgerModal').classList.add('open');setTimeout(()=>{const n=$('#lm-name');if(n)n.focus()},50)}
+function ledgerTypeChanged(){const t=$('#lm-type').value;$('#lm-sub').innerHTML=SUBDIVISIONS[t].map(s=>'<option>'+s+'</option>').join('');const show=['Asset','Liability','Equity'].includes(t);$('#lm-open-wrap').style.display=show?'block':'none';$('#lm-side').value=t==='Asset'?'Dr':'Cr'}
+function saveLedgerModal(){const name=$('#lm-name').value,type=$('#lm-type').value,sub=$('#lm-sub').value,open=parseAmt($('#lm-open').value),side=$('#lm-side').value;const r=addLedger(name,type,sub,open,side);if(!r.ok){$('#ledgerModalMsg').textContent=r.error;return}
+ // If opened from a picker, select the new ledger immediately in that picker
+ if(pickerAfterCreate){const inp=document.getElementById(pickerAfterCreate),hid=document.getElementById(pickerAfterCreate+'-val');if(inp){inp.value=r.ledger.name}if(hid){hid.value=r.ledger.id}}
+ closeModal('ledgerModal');pickerAfterCreate=null;saveAll();render()}
+function closeModal(id){document.getElementById(id).classList.remove('open')}
+function deleteLedger(id){const used=S.journals.some(j=>j.lines.some(l=>l.ledgerId===id));if(used){alert('Cannot delete: this ledger is used in journal entries.');return}S.ledgers=S.ledgers.filter(l=>l.id!==id);saveAll();render()}
+/* ---------- quick add / journal ---------- */
+function saveQuick(kind){const p=kind==='expense'?'qe':'qi';const r=quickAdd(kind,{date:$('#'+p+'-date').value,ledgerId:$('#'+p+'-ledger-val').value,payLedgerId:$('#'+p+'-pay-val').value,amount:$('#'+p+'-amt').value,narration:$('#'+p+'-narr').value});const m=$('#'+p+'-msg');if(!r.ok){showMsg('#'+p+'-msg',r.error);return}showMsg('#'+p+'-msg','✓ Saved — balanced journal created.',true);saveAll();$('#'+p+'-amt').value='';$('#'+p+'-narr').value='';render()}
+function addJournalLine(){const wrap=$('#j-lines');if(!wrap)return;jLineCount++;wrap.insertAdjacentHTML('beforeend',journalLineHTML(jLineCount));attachPicker('jl-'+jLineCount+'-ledger')}
+function updateTotals(){let dr=0,cr=0;$$('#j-lines [data-line]').forEach(row=>{const i=row.dataset.line;dr+=parseAmt($('#jl-'+i+'-dr')?.value);cr+=parseAmt($('#jl-'+i+'-cr')?.value)});const t=$('#j-totals');if(t)t.innerHTML='Total Dr: <b>'+fmt(dr)+'</b> &nbsp; Total Cr: <b>'+fmt(cr)+'</b> &nbsp; '+(Math.abs(dr-cr)<0.005&&dr>0?'<span class="ok">✓ Balanced</span>':'<span class="err">Not balanced yet</span>')}
+function readJournalLines(prefix){const lines=[];$$('#'+prefix+' [data-line], #j-lines [data-line]').forEach(()=>{});return lines}
+function collectLines(containerId,prefix){const out=[];const rows=document.querySelectorAll('#'+containerId+' [data-line]');rows.forEach(row=>{const i=row.dataset.line;out.push({ledgerId:document.getElementById(prefix+i+'-ledger-val')?.value||'',dr:parseAmt(document.getElementById(prefix+i+'-dr')?.value),cr:parseAmt(document.getElementById(prefix+i+'-cr')?.value)})});return out}
+function saveJournal(){const lines=collectLines('j-lines','jl-');const r=addJournal({date:$('#j-date').value,narration:$('#j-narr').value,lines,source:'journal'});if(!r.ok){showMsg('#j-msg',r.error);return}showMsg('#j-msg','✓ Journal saved.',true);saveAll();render()}
+function saveAsRecurring(){const lines=collectLines('j-lines','jl-');const narr=$('#j-narr').value;if(!narr.trim()){showMsg('#j-msg','Narration is mandatory — even for a recurring template.');return}const err=validateJournal({date:todayStr(),narration:narr,lines});if(err){showMsg('#j-msg',err);return}S.recurring.push({id:uid(),name:narr.slice(0,40),narration:narr,lines,freq:'monthly',interval:1,intervalUnit:'months',startDate:todayStr(),endDate:'',nextDue:calcNextDue({freq:'monthly',startDate:todayStr()},todayStr()),paused:false,lastPosted:''});saveAll();alert('Saved as a monthly recurring template. Edit frequency on the Recurring page.');go('recurring')}
+function showJournal(id){const j=S.journals.find(x=>x.id===id);if(!j)return;$('#journalDetail').innerHTML='<p><b>Date:</b> '+esc(j.date)+' &nbsp; <b>Source:</b> '+esc(j.source||'')+'</p><p><b>Narration:</b> '+esc(j.narration)+'</p><table><tr><th>Ledger</th><th class="num">Dr</th><th class="num">Cr</th></tr>'+j.lines.map(l=>{const led=ledgerById(l.ledgerId);return '<tr><td>'+esc(led?led.name:'(deleted)')+'</td><td class="num">'+(l.dr?fmt(l.dr):'')+'</td><td class="num">'+(l.cr?fmt(l.cr):'')+'</td></tr>'}).join('')+'</table>';$('#journalModal').classList.add('open')}
+function showLedger(id){const l=ledgerById(id);if(!l)return;const rows=S.journals.filter(j=>inPeriod(j.date)&&j.lines.some(x=>x.ledgerId===id));const bal=ledgerBalance(id,period.to);
+ $('#page').innerHTML='<button class="btn small ghost" onclick="PersERP.go(\'ledgers\')">← All ledgers</button><h1>'+esc(l.name)+'</h1><p class="mut">'+esc(l.type)+' • '+esc(l.sub)+' • Balance as of '+esc(period.to)+': <b>'+fmt(Math.abs(bal))+(bal>0.005?' Dr':bal<-0.005?' Cr':'')+'</b> • Opening: '+fmt(l.opening||0)+' '+esc(l.openingSide||'')+'</p><div class="card"><table><tr><th>Date</th><th>Narration</th><th class="num">Dr</th><th class="num">Cr</th></tr>'+rows.map(j=>{const ln=j.lines.find(x=>x.ledgerId===id);return '<tr class="clickable" onclick="PersERP.showJournal(\''+j.id+'\')"><td>'+esc(j.date)+'</td><td>'+esc(j.narration)+'</td><td class="num">'+(ln.dr?fmt(ln.dr):'')+'</td><td class="num">'+(ln.cr?fmt(ln.cr):'')+'</td></tr>'}).join('')+'</table><p class="mut">Click a row to open that journal entry.</p><button class="btn small navy" onclick="PersERP.exportLedger(\''+id+'\')">Export Excel</button> <button class="btn small ghost" onclick="window.print()">Export PDF</button></div>'}
+/* ---------- assets / recurring actions ---------- */
+function saveAsset(){const name=$('#a-name').value.trim(),cost=parseAmt($('#a-cost').value),life=parseInt($('#a-life').value,10),unit=$('#a-unit').value,narr=$('#a-narr').value;if(!name){showMsg('#a-msg','Asset name is required.');return}if(!narr.trim()){showMsg('#a-msg','Narration is mandatory.');return}if(!cost||cost<=0){showMsg('#a-msg','Enter a cost greater than 0.');return}if(!life||life<1){showMsg('#a-msg','Useful life must be at least 1.');return}
+ let ledId=$('#a-ledger-val').value;if(!ledId){const r=addLedger(name,'Asset','Non-Current / Fixed Asset',0,'Dr');ledId=r.ledger.id}
+ S.assets.push({id:uid(),name,ledgerId:ledId,purchaseDate:$('#a-date').value||todayStr(),cost,lifeValue:life,lifeUnit:unit,residual:0,narration:narr});saveAll();render()}
+function postDep(id){const r=postDepreciation(id,todayStr());if(!r.ok){alert(r.error);return}saveAll();alert('Depreciation posted: '+fmt(r.amount));render()}
+function deleteAsset(id){S.assets=S.assets.filter(a=>a.id!==id);S.depLog=S.depLog.filter(d=>d.assetId!==id);saveAll();render()}
+function addRecLine(){const wrap=$('#r-lines');if(!wrap)return;rLineCount++;wrap.insertAdjacentHTML('beforeend','<div class="row" style="align-items:end;border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px" data-line="'+rLineCount+'"><div style="flex:2">'+pickerHTML('rl-'+rLineCount+'-ledger')+'</div><div><label>Dr</label><input type="number" min="0" step="0.01" id="rl-'+rLineCount+'-dr"></div><div><label>Cr</label><input type="number" min="0" step="0.01" id="rl-'+rLineCount+'-cr"></div><button type="button" class="btn small danger" onclick="this.closest(\'[data-line]\').remove()">✕</button></div>');attachPicker('rl-'+rLineCount+'-ledger')}
+function saveRecurring(){const name=$('#r-name').value.trim(),narr=$('#r-narr').value;if(!name){showMsg('#r-msg','Name is required.');return}if(!narr.trim()){showMsg('#r-msg','Narration is mandatory.');return}const lines=collectLines('r-lines','rl-');const err=validateJournal({date:todayStr(),narration:narr,lines});if(err){showMsg('#r-msg',err);return}const freq=$('#r-freq').value;const r={id:uid(),name,narration:narr,lines,freq,interval:parseInt($('#r-interval').value,10)||1,intervalUnit:$('#r-unit').value,startDate:$('#r-start').value||todayStr(),endDate:$('#r-end').value||'',paused:false,lastPosted:''};r.nextDue=calcNextDue(r,r.startDate);S.recurring.push(r);saveAll();render()}
+function postDue(id){const r=S.recurring.find(x=>x.id===id);if(!r)return;const res=postRecurring(r);if(!res.ok){alert(res.error);return}saveAll();alert('Posted: '+r.name);render()}
+function skipDue(id){const r=S.recurring.find(x=>x.id===id);if(!r)return;r.nextDue=calcNextDue(r,r.nextDue);saveAll();render()}
+function toggleRec(id){const r=S.recurring.find(x=>x.id===id);if(r){r.paused=!r.paused;saveAll();render()}}
+function deleteRec(id){S.recurring=S.recurring.filter(x=>x.id!==id);saveAll();render()}
+/* ---------- report / export actions ---------- */
+function renderReport(){const k=$('#rep-kind').value;$('#rep-out').innerHTML=reportHTML(k)}
+function exportReport(){const k=$('#rep-kind').value;const names={tb:'Trial Balance',pl:'Profit & Loss',bs:'Balance Sheet',cf:'Cash Flow'};let rows=[];if(k==='tb'){const tb=trialBalance();rows=[['Ledger','Type','Debit','Credit']].concat(tb.rows.map(r=>[r.ledger.name,r.ledger.type,r.dr||'',r.cr||''])).concat([['Total','',tb.totalDr,tb.totalCr]])}else if(k==='pl'){const pl=profitLoss();rows=[['Section','Ledger','Amount']].concat(pl.incomeRows.map(r=>['Income',r.ledger.name,r.amount])).concat(pl.expenseRows.map(r=>['Expense',r.ledger.name,r.amount])).concat([['Net profit','',pl.profit]])}else if(k==='bs'){const bs=balanceSheet();rows=[['Section','Ledger','Amount']];for(const t of ['Asset','Liability','Equity'])(bs.groups[t]||[]).forEach(r=>rows.push([t,r.ledger.name,r.amount]));rows.push(['Retained profit to date','',bs.profit],['Total Assets','',bs.assets],['Liabilities + Equity + Profit','',bs.rhs])}else{const cf=cashFlow();rows=[['Activity','Amount'],['Operating',cf.operating],['Investing',cf.investing],['Financing',cf.financing],['Net cash flow',cf.net],['Closing Cash & Bank',cf.closing]]}
+ const how=exportSheet('perserp-'+k+'-'+todayStr(),rows);alert('Exported as '+(how==='xlsx'?'Excel (.xlsx)':'CSV (Excel-compatible — SheetJS CDN was offline, so CSV fallback was used)')+' with PersERP branding.')}
+function printCurrentReport(){const k=$('#rep-kind').value;printReport({tb:'Trial Balance',pl:'Profit & Loss',bs:'Balance Sheet',cf:'Cash Flow Statement'}[k],reportHTML(k))}
+function exportDayBook(){const list=S.journals.filter(j=>inPeriod(j.date));const rows=[['Date','Narration','Source','Ledger','Dr','Cr']];list.forEach(j=>j.lines.forEach(l=>rows.push([j.date,j.narration,j.source||'',(ledgerById(l.ledgerId)||{}).name||'',l.dr||'',l.cr||''])));exportSheet('perserp-daybook-'+todayStr(),rows)}
+function printDayBook(){const list=S.journals.filter(j=>inPeriod(j.date));printReport('Day Book','<table><tr><th>Date</th><th>Narration</th><th class="num">Amount</th></tr>'+list.map(j=>'<tr><td>'+esc(j.date)+'</td><td>'+esc(j.narration)+'</td><td style="text-align:right">'+fmt(j.lines.reduce((a,l)=>a+(l.dr||0),0))+'</td></tr>').join('')+'</table>')}
+function exportLedgers(){exportSheet('perserp-ledgers-'+todayStr(),[['Ledger','Type','Subdivision','Opening','Balance as of '+period.to]].concat(S.ledgers.map(l=>[l.name,l.type,l.sub,l.opening||0,ledgerBalance(l.id,period.to)])))}
+function exportLedger(id){const l=ledgerById(id);const rows=S.journals.filter(j=>inPeriod(j.date)&&j.lines.some(x=>x.ledgerId===id));exportSheet('perserp-ledger-'+l.name.replace(/\W+/g,'-'),[['Date','Narration','Dr','Cr']].concat(rows.map(j=>{const ln=j.lines.find(x=>x.ledgerId===id);return [j.date,j.narration,ln.dr||'',ln.cr||'']})))}
+function importFile(ev){const f=ev.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{if(!confirm('Importing will REPLACE your current book. Continue?'))return;const r=importJSONText(rd.result);if(!r.ok){alert(r.error);return}saveAll();alert('Imported '+r.count+' journal entries.');render()};rd.readAsText(f)}
+function syncNow(){return autosaveNow(true)}
+function deleteAccount(){if(!confirm('Delete your account and ALL your books? This cannot be undone.'))return;try{localStorage.removeItem(storeKey(currentUser));const a=localAccounts();delete a[currentUser];saveLocalAccounts(a)}catch(e){}if(isConfigured()){sbRpc('perserp_delete_account',{p_username:currentUser}).catch(()=>{})}logout()}
+/* ---------- init ---------- */
+function init(){const sess=(()=>{try{return localStorage.getItem('perserp_session')}catch(e){return ''}})();if(sess){/* session restore happens via login screen flow — require fresh login for safety in v1 */}renderNav();setCloud(isConfigured()?'Configured':'Offline');const ss=$('#syncStatus');if(ss)ss.textContent=isConfigured()?'Supabase configured — cloud autosave will run once you log in.':'Offline mode — local storage. Supabase is configured in this build; sign in to enable cloud autosave.'}
+window.PersERP={go,applyPeriod,resetPeriod,logout,uiLogin:()=>doAuth('login'),uiSignup:()=>doAuth('signup'),openLedgerModal,ledgerTypeChanged,saveLedgerModal,closeModal,showJournal,showLedger,deleteLedger,saveQuick,saveJournal,addJournalLine,updateTotals,saveAsRecurring,exportDayBook,printDayBook,exportJSON,exportLedgers,exportLedger,saveAsset,postDep,deleteAsset,postDue,skipDue,toggleRec,deleteRec,addRecLine,saveRecurring,renderReport,exportReport,printCurrentReport,importFile,syncNow,saveNow:()=>autosaveNow(true),autosaveNow,startAutosave,stopAutosave,deleteAccount,
+ // testable core (no DOM needed for most):
+ get state(){return S}, set state(v){S=v}, blankState, seedLedgers, addLedger, addJournal, validateJournal, quickAdd, ledgerBalance, ledgerMovement, filterLedgers, ledgerById, ledgerByName, trialBalance, profitLoss, balanceSheet, cashFlow, calcNextDue, dueRecurring, postRecurring, depPerPeriod, depSchedule, postDepreciation, exportJSONText:()=>JSON.stringify({ledgers:S.ledgers,journals:S.journals,recurring:S.recurring,assets:S.assets,depLog:S.depLog}), importJSONText, inPeriod, setPeriod:(f,t)=>{period={from:f,to:t}}, getPeriod:()=>({...period}), isConfigured, hashSync, hashPassword, SUBDIVISIONS};
+document.addEventListener('DOMContentLoaded',init); if(document.readyState!=='loading')init();
+</script></body></html>
